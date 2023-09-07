@@ -1,14 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path"
 	"time"
 
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/config"
 	"gopkg.in/src-d/go-git.v4/plumbing/object"
@@ -28,69 +27,80 @@ var (
 	version = "dev"
 )
 
-func init() {
+func initApp() error {
 	rconfig.AutoEnv(true)
 	if err := rconfig.ParseAndValidate(&cfg); err != nil {
-		log.Fatalf("Unable to parse commandline options: %s", err)
+		return errors.Wrap(err, "parsing commandline options")
+	}
+
+	l, err := logrus.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		return errors.Wrap(err, "parsing log level")
+	}
+	logrus.SetLevel(l)
+
+	return nil
+}
+
+//nolint:gocyclo
+func main() {
+	var err error
+
+	if err = initApp(); err != nil {
+		logrus.WithError(err).Fatal("initializing app")
 	}
 
 	if cfg.VersionAndExit {
-		fmt.Printf("twitch-diff %s\n", version)
+		logrus.WithField("version", version).Info("twitch-diff")
 		os.Exit(0)
 	}
 
-	if l, err := log.ParseLevel(cfg.LogLevel); err != nil {
-		log.WithError(err).Fatal("Unable to parse log level")
-	} else {
-		log.SetLevel(l)
-	}
-}
-
-func main() {
 	repo, err := git.PlainOpen(cfg.TargetDir)
 	if err != nil {
 		if err != git.ErrRepositoryNotExists {
-			log.WithError(err).Fatal("Unable to open repository")
+			logrus.WithError(err).Fatal("opening repository")
 		}
 
 		if repo, err = initRepo(); err != nil {
-			log.WithError(err).Fatal("Unable to initialize repo")
+			logrus.WithError(err).Fatal("initializing repo")
 		}
 	}
 
 	worktree, err := repo.Worktree()
 	if err != nil {
-		log.WithError(err).Fatal("Unable to get working tree")
+		logrus.WithError(err).Fatal("getting working tree")
 	}
 
 	followers, err := twitch.GetFollowers()
 	if err != nil {
-		log.WithError(err).Fatal("Getting followers")
+		logrus.WithError(err).Fatal("getting followers")
 	}
 
 	subs, err := twitch.GetSubscriptions()
 	if err != nil {
-		log.WithError(err).Fatal("Getting subscriptions")
+		logrus.WithError(err).Fatal("getting subscriptions")
 	}
 
 	for fn, r := range map[string]io.Reader{
 		"followers.csv":   followers.ToCSV(),
 		"subscribers.csv": subs.ToCSV(),
 	} {
-		f, err := os.Create(path.Join(cfg.TargetDir, fn))
+		f, err := os.Create(path.Join(cfg.TargetDir, fn)) //#nosec:G304 // Opening that given dir is intentional
 		if err != nil {
-			log.WithError(err).WithField("file", fn).Fatal("Unable to create file")
+			logrus.WithError(err).WithField("file", fn).Fatal("creating file")
 		}
 
 		if _, err = io.Copy(f, r); err != nil {
-			log.WithError(err).WithField("file", fn).Fatal("Unable to write file content")
+			logrus.WithError(err).WithField("file", fn).Fatal("writing file content")
 		}
 
-		f.Close()
+		if err = f.Close(); err != nil {
+			logrus.WithError(err).Error("closing file (leaked fd)")
+		}
 
 		status, err := worktree.Status()
 		if err != nil {
-			log.WithError(err).Fatal("Unable to get worktree status")
+			logrus.WithError(err).Fatal("getting worktree status")
 		}
 		if status.IsClean() {
 			// Nothing to do
@@ -98,13 +108,13 @@ func main() {
 		}
 
 		if _, err = worktree.Add(fn); err != nil {
-			log.WithError(err).WithField("file", fn).Fatal("Unable to add file to worktree")
+			logrus.WithError(err).WithField("file", fn).Fatal("adding file to worktree")
 		}
 	}
 
 	status, err := worktree.Status()
 	if err != nil {
-		log.WithError(err).Fatal("Unable to get worktree status")
+		logrus.WithError(err).Fatal("getting worktree status")
 	}
 	if status.IsClean() {
 		// Nothing to do
@@ -115,7 +125,7 @@ func main() {
 		"Automatic fetch of twitch data",
 		&git.CommitOptions{Author: getSignature()},
 	); err != nil {
-		log.WithError(err).Fatal("Unable to commit changes")
+		logrus.WithError(err).Fatal("committing changes")
 	}
 }
 

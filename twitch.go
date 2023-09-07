@@ -11,10 +11,13 @@ import (
 
 	"github.com/Luzifer/go_helpers/v2/backoff"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
-const twitchRequestTimeout = 5 * time.Second
+const (
+	twitchRequestTimeout       = 5 * time.Second
+	twitchMaxRequestIterations = 3
+)
 
 var twitch = newTwitchClient()
 
@@ -27,7 +30,7 @@ func newTwitchClient() *twitchClient {
 func (t twitchClient) GetFollowers() (twitchFollowList, error) {
 	uid, _, err := t.getAuthorizedUser()
 	if err != nil {
-		return nil, errors.Wrap(err, "get logged-in user")
+		return nil, errors.Wrap(err, "getting logged-in user")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), twitchRequestTimeout)
@@ -49,13 +52,13 @@ func (t twitchClient) GetFollowers() (twitchFollowList, error) {
 		params.Set("after", payload.Pagination.Cursor)
 		payload.Pagination.Cursor = ""
 
-		if err = backoff.NewBackoff().WithMaxIterations(3).Retry(func() error {
+		if err = backoff.NewBackoff().WithMaxIterations(twitchMaxRequestIterations).Retry(func() error {
 			return errors.Wrap(
 				t.request(ctx, http.MethodGet, fmt.Sprintf("https://api.twitch.tv/helix/users/follows?%s", params.Encode()), nil, &payload),
 				"requesting follows",
 			)
 		}); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "getting followers")
 		}
 
 		out = append(out, payload.Data...)
@@ -71,7 +74,7 @@ func (t twitchClient) GetFollowers() (twitchFollowList, error) {
 func (t twitchClient) GetSubscriptions() (twitchSubscriptionList, error) {
 	uid, _, err := t.getAuthorizedUser()
 	if err != nil {
-		return nil, errors.Wrap(err, "get logged-in user")
+		return nil, errors.Wrap(err, "getting logged-in user")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), twitchRequestTimeout)
@@ -93,13 +96,13 @@ func (t twitchClient) GetSubscriptions() (twitchSubscriptionList, error) {
 		params.Set("after", payload.Pagination.Cursor)
 		payload.Pagination.Cursor = ""
 
-		if err = backoff.NewBackoff().WithMaxIterations(3).Retry(func() error {
+		if err = backoff.NewBackoff().WithMaxIterations(twitchMaxRequestIterations).Retry(func() error {
 			return errors.Wrap(
 				t.request(ctx, http.MethodGet, fmt.Sprintf("https://api.twitch.tv/helix/subscriptions?%s", params.Encode()), nil, &payload),
 				"requesting subscriptions",
 			)
 		}); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "getting subscribers")
 		}
 
 		out = append(out, payload.Data...)
@@ -134,13 +137,13 @@ func (t twitchClient) getAuthorizedUser() (id, username string, err error) {
 	return payload.Data[0].ID, payload.Data[0].Login, nil
 }
 
-func (twitchClient) request(ctx context.Context, method, url string, body io.Reader, out interface{}) error {
-	log.WithFields(log.Fields{
+func (twitchClient) request(ctx context.Context, method, reqURL string, body io.Reader, out interface{}) error {
+	logrus.WithFields(logrus.Fields{
 		"method": method,
-		"url":    url,
+		"url":    reqURL,
 	}).Trace("Execute Twitch API request")
 
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	req, err := http.NewRequestWithContext(ctx, method, reqURL, body)
 	if err != nil {
 		return errors.Wrap(err, "assemble request")
 	}
@@ -152,7 +155,11 @@ func (twitchClient) request(ctx context.Context, method, url string, body io.Rea
 	if err != nil {
 		return errors.Wrap(err, "execute request")
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logrus.WithError(err).Error("closing http body (leaked fd)")
+		}
+	}()
 
 	return errors.Wrap(
 		json.NewDecoder(resp.Body).Decode(out),
