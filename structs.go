@@ -11,11 +11,9 @@ import (
 type (
 	twitchFollowList []twitchFollow
 	twitchFollow     struct {
-		FromID     string    `json:"from_id"`
-		FromLogin  string    `json:"from_login"`
-		FromName   string    `json:"from_name"`
-		ToID       string    `json:"to_id"`
-		ToName     string    `json:"to_name"`
+		UserID     string    `json:"user_id"`
+		UserLogin  string    `json:"user_login"`
+		UserName   string    `json:"user_name"`
 		FollowedAt time.Time `json:"followed_at"`
 	}
 )
@@ -23,15 +21,15 @@ type (
 func (t twitchFollowList) ToCSV() io.Reader {
 	out := new(bytes.Buffer)
 
-	sort.Slice(t, func(i, j int) bool { return t[i].FromLogin < t[j].FromLogin })
+	sort.Slice(t, func(i, j int) bool { return t[i].UserLogin < t[j].UserLogin })
 
 	fmt.Fprintln(out, "login,display_name,id,followed_at")
 	for _, f := range t {
 		fmt.Fprintf(
 			out, "%q,%q,%s,%s\n",
-			f.FromLogin,
-			f.FromName,
-			f.FromID,
+			f.UserLogin,
+			f.UserName,
+			f.UserID,
 			f.FollowedAt.Format(time.RFC3339),
 		)
 	}

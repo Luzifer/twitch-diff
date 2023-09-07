@@ -48,13 +48,13 @@ func (t twitchClient) GetFollowers() (twitchFollowList, error) {
 
 	for {
 		params := make(url.Values)
-		params.Set("to_id", uid)
+		params.Set("broadcaster_id", uid)
 		params.Set("after", payload.Pagination.Cursor)
 		payload.Pagination.Cursor = ""
 
 		if err = backoff.NewBackoff().WithMaxIterations(twitchMaxRequestIterations).Retry(func() error {
 			return errors.Wrap(
-				t.request(ctx, http.MethodGet, fmt.Sprintf("https://api.twitch.tv/helix/users/follows?%s", params.Encode()), nil, &payload),
+				t.request(ctx, http.MethodGet, fmt.Sprintf("https://api.twitch.tv/helix/channels/followers?%s", params.Encode()), nil, &payload),
 				"requesting follows",
 			)
 		}); err != nil {
