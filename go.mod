@@ -9,7 +9,7 @@ require (
 	github.com/Luzifer/rconfig/v2 v2.6.0
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/pkg/errors v0.9.1
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 )
 
 require (
