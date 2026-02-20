@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/Luzifer/go_helpers/v2/backoff"
+	"github.com/Luzifer/go_helpers/backoff"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )

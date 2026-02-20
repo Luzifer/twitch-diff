@@ -1,11 +1,11 @@
 module github.com/Luzifer/twitch-diff
 
-go 1.24.0
+go 1.25.7
 
 toolchain go1.26.0
 
 require (
-	github.com/Luzifer/go_helpers/v2 v2.25.2
+	github.com/Luzifer/go_helpers/backoff v0.5.1
 	github.com/Luzifer/rconfig/v2 v2.6.1
 	github.com/go-git/go-git/v5 v5.16.5
 	github.com/pkg/errors v0.9.1
