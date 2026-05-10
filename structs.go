@@ -9,13 +9,31 @@ import (
 )
 
 type (
-	twitchFollowList []twitchFollow
-	twitchFollow     struct {
+	twitchFollow struct {
 		UserID     string    `json:"user_id"`
 		UserLogin  string    `json:"user_login"`
 		UserName   string    `json:"user_name"`
 		FollowedAt time.Time `json:"followed_at"`
 	}
+
+	twitchFollowList []twitchFollow
+
+	twitchSubscription struct {
+		BroadcasterID    string `json:"broadcaster_id"`
+		BroadcasterLogin string `json:"broadcaster_login"`
+		BroadcasterName  string `json:"broadcaster_name"`
+		GifterID         string `json:"gifter_id"`
+		GifterLogin      string `json:"gifter_login"`
+		GifterName       string `json:"gifter_name"`
+		IsGift           bool   `json:"is_gift"`
+		Tier             string `json:"tier"`
+		PlanName         string `json:"plan_name"`
+		UserID           string `json:"user_id"`
+		UserName         string `json:"user_name"`
+		UserLogin        string `json:"user_login"`
+	}
+
+	twitchSubscriptionList []twitchSubscription
 )
 
 func (t twitchFollowList) ToCSV() io.Reader {
@@ -36,24 +54,6 @@ func (t twitchFollowList) ToCSV() io.Reader {
 
 	return out
 }
-
-type (
-	twitchSubscriptionList []twitchSubscription
-	twitchSubscription     struct {
-		BroadcasterID    string `json:"broadcaster_id"`
-		BroadcasterLogin string `json:"broadcaster_login"`
-		BroadcasterName  string `json:"broadcaster_name"`
-		GifterID         string `json:"gifter_id"`
-		GifterLogin      string `json:"gifter_login"`
-		GifterName       string `json:"gifter_name"`
-		IsGift           bool   `json:"is_gift"`
-		Tier             string `json:"tier"`
-		PlanName         string `json:"plan_name"`
-		UserID           string `json:"user_id"`
-		UserName         string `json:"user_name"`
-		UserLogin        string `json:"user_login"`
-	}
-)
 
 func (t twitchSubscriptionList) ToCSV() io.Reader {
 	out := new(bytes.Buffer)

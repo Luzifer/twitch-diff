@@ -8,7 +8,6 @@ require (
 	github.com/Luzifer/go_helpers/backoff v0.5.2
 	github.com/Luzifer/rconfig/v2 v2.6.2
 	github.com/go-git/go-git/v5 v5.19.0
-	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.4
 )
 

@@ -1,48 +1,76 @@
+// Twitch-Diff Utility
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path"
 	"time"
 
+	"github.com/Luzifer/rconfig/v2"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-
-	"github.com/Luzifer/rconfig/v2"
 )
 
 var (
 	cfg = struct {
 		LogLevel       string `flag:"log-level" default:"info" description:"Log level (debug, info, warn, error, fatal)"`
 		TargetDir      string `flag:"target-dir" default:"./data" description:"Where to create the repo"`
-		TwitchClientID string `flag:"twitch-client-id,c" default:"" description:"ClientID to access Twitch" validate:"nonzero"`
-		TwitchToken    string `flag:"twitch-token,t" default:"" description:"Token generated for the given ClientID and account" validate:"nonzero"`
+		TwitchClientID string `flag:"twitch-client-id,c" default:"" description:"ClientID to access Twitch" validate:"nonzero"`                      //revive:disable-line:struct-tag // nonzero works for our validator
+		TwitchToken    string `flag:"twitch-token,t" default:"" description:"Token generated for the given ClientID and account" validate:"nonzero"` //revive:disable-line:struct-tag // nonzero works for our validator
 		VersionAndExit bool   `flag:"version" default:"false" description:"Prints current version and exits"`
 	}{}
 
 	version = "dev"
 )
 
+func getSignature() *object.Signature {
+	return &object.Signature{Name: "twitch-diff " + version, Email: "twitch-diff@luzifer.io", When: time.Now()}
+}
+
 func initApp() error {
 	rconfig.AutoEnv(true)
 	if err := rconfig.ParseAndValidate(&cfg); err != nil {
-		return errors.Wrap(err, "parsing commandline options")
+		return fmt.Errorf("parsing commandline options: %w", err)
 	}
 
 	l, err := logrus.ParseLevel(cfg.LogLevel)
 	if err != nil {
-		return errors.Wrap(err, "parsing log level")
+		return fmt.Errorf("parsing log level: %w", err)
 	}
 	logrus.SetLevel(l)
 
 	return nil
 }
 
-//nolint:gocyclo
+func initRepo() (*git.Repository, error) {
+	repo, err := git.PlainInit(cfg.TargetDir, false)
+	if err != nil {
+		return nil, fmt.Errorf("initializing repo: %w", err)
+	}
+
+	if _, err := repo.Branch("master"); err == git.ErrBranchNotFound {
+		if err := repo.CreateBranch(&config.Branch{Name: "master"}); err != nil {
+			return nil, fmt.Errorf("creating master branch: %w", err)
+		}
+	}
+
+	wt, err := repo.Worktree()
+	if err != nil {
+		return nil, fmt.Errorf("getting worktree: %w", err)
+	}
+
+	if _, err = wt.Commit("Initial commit", &git.CommitOptions{Author: getSignature()}); err != nil {
+		return nil, fmt.Errorf("creating initial commit: %w", err)
+	}
+
+	return repo, nil
+}
+
+//nolint:gocyclo // easier to keep this way
 func main() {
 	var err error
 
@@ -127,30 +155,4 @@ func main() {
 	); err != nil {
 		logrus.WithError(err).Fatal("committing changes")
 	}
-}
-
-func initRepo() (*git.Repository, error) {
-	repo, err := git.PlainInit(cfg.TargetDir, false)
-	if err != nil {
-		return nil, errors.Wrap(err, "initializing repo")
-	}
-
-	if _, err := repo.Branch("master"); err == git.ErrBranchNotFound {
-		if err := repo.CreateBranch(&config.Branch{Name: "master"}); err != nil {
-			return nil, errors.Wrap(err, "creating master branch")
-		}
-	}
-
-	wt, err := repo.Worktree()
-	if err != nil {
-		return nil, errors.Wrap(err, "getting worktree")
-	}
-
-	_, err = wt.Commit("Initial commit", &git.CommitOptions{Author: getSignature()})
-
-	return repo, errors.Wrap(err, "creating initial commit")
-}
-
-func getSignature() *object.Signature {
-	return &object.Signature{Name: "twitch-diff " + version, Email: "twitch-diff@luzifer.io", When: time.Now()}
 }
