@@ -7,7 +7,7 @@ toolchain go1.26.3
 require (
 	github.com/Luzifer/go_helpers/backoff v0.5.2
 	github.com/Luzifer/rconfig/v2 v2.6.2
-	github.com/go-git/go-git/v5 v5.19.0
+	github.com/go-git/go-git/v5 v5.19.1
 	github.com/sirupsen/logrus v1.9.4
 )
 
